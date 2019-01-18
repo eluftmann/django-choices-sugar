@@ -1,4 +1,2 @@
 include LICENSE
-include MANIFEST.in
 include README.md
-include tests.py

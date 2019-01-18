@@ -1,51 +1,11 @@
 # coding=utf-8
 
 import ast
-import functools
-import inspect
-import itertools
-from cStringIO import StringIO
+
+from .inspect_utils import get_class_source
+from .inspect_utils import unindent_block
 
 __all__ = ['Choices']
-
-
-VERSION = (0, 1)
-
-# PEP 440-compliant version number from `VERSION`
-__version__ = '.'.join(map(str, VERSION))
-
-
-def unindent_block(code):
-    """
-    Unindent Python source code block.
-
-    Superfluous indentation is inferred from the leading whitespaces
-    in the first line.
-
-    :param code: source code to unindent
-    :type code: str
-    :rtype: str
-
-    >>> unindent_block("    class C(object):\\n        A = 10\\n")
-    'class C(object):\\n    A = 10\\n'
-    >>> unindent_block("class C(object):\\n  A = 10\\n  B = 20\\n")
-    'class C(object):\\n  A = 10\\n  B = 20\\n'
-    >>> unindent_block("    ")
-    ''
-    """
-    code_stream = StringIO(code)
-
-    first_line = code_stream.readline()
-    base_indent = len(first_line) - len(first_line.lstrip())
-
-    # Reduce function is fed with a tuple as a second argument:
-    # next line of code with number of characters to strip (indentation)
-    # Could be also done using standard list comprehensions / string join.
-    return functools.reduce(
-        lambda code_acc, (next_line, start): code_acc + next_line[start:],
-        itertools.product(code_stream, [base_indent]),
-        first_line[base_indent:]
-    )
 
 
 class AssignNodeVisitor(ast.NodeVisitor):
@@ -89,7 +49,7 @@ class AttributedTuple(tuple):
     Tuple-compatible type which enables limited fields (attributes) access.
 
     This class acts as a class template and should be only instantiated
-    by ``ChoisesMeta``.
+    by ``ChoicesMeta``.
     """
 
     __slots__ = ()
@@ -119,12 +79,12 @@ class ChoicesMeta(type):
         new_object = super(ChoicesMeta, mcs).__new__(mcs, name, bases, dct)
 
         # Ensure further initialization is only performed
-        # for subclasses of `Choises` (excluding `Choises` class itself).
+        # for subclasses of `Choices` (excluding `Choices` class itself)
         if not any(isinstance(base, mcs) for base in bases):
             return new_object
 
-        # Build AST from source to get attributes order
-        choices_source_code = unindent_block(inspect.getsource(new_object))
+        # Build AST from source code to get attributes order
+        choices_source_code = unindent_block(get_class_source(new_object))
         choices_ast = ast.parse(choices_source_code)
 
         # Prevent overriding tuple's internals
@@ -133,7 +93,7 @@ class ChoicesMeta(type):
         node_visitor.visit(choices_ast)
         attributes = node_visitor.visited_attributes
 
-        # Ensure every item has a label: use attribute name when missing
+        # Ensure every item has a label - use attribute name when missing
         seq = [dct[key] if isinstance(dct[key], tuple) else (dct[key], key)
                for key in attributes]
 

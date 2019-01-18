@@ -6,6 +6,3 @@
 
 # Unit test / coverage reports
 .tox/
-
-# virtualenv
-.venv/
